@@ -1,9 +1,9 @@
 import unittest
 import numpy as np
 
+from pigeonet.basic.common import Variable
+from pigeonet.basic.common import *
 from pigeonet.basic.numerical_diff import numerical_diff
-from pigeonet.basic.variable import Variable
-from pigeonet.basic.function import square, add
 
 
 class SquareTest(unittest.TestCase):
@@ -39,3 +39,12 @@ class SquareTest(unittest.TestCase):
         y.backward()
         self.assertEqual(y.data, Variable(32).data)
         self.assertEqual(x.grad, 64)
+
+    def test_overload_operator(self):
+        x = Variable(2)
+        a = x + 2
+        b = 2 + x
+        c = x * 2
+        d = 2 * x
+
+        self.assertEqual(d.data, Variable(24).data)

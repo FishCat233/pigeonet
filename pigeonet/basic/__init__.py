@@ -1,5 +1,4 @@
-from pigeonet.basic.variable import *
-from pigeonet.basic.function import *
+from pigeonet.basic.common import *
 
 if __name__ == '__main__':
     x0 = Variable(2)
