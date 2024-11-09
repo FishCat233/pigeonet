@@ -10,6 +10,8 @@ from pigeonet.basic.variable import Variable
 
 __all__ = [name for name in globals() if not name.startswith('_')]
 
+#TODO: 添加一个禁反向传播的功能
+
 
 class Function(ABC):
     def __call__(self, *args: Variable, **kwargs):

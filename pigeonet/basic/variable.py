@@ -15,7 +15,7 @@ class Variable:
         self.data: np.ndarray = data
         self._creator: Optional[Function] = None
         self.grad: Optional[np.ndarray] = None
-        self.generation: int = 0 # 代数，用于标记函数反向传播先后顺序
+        self.generation: int = 0  # 代数，用于标记函数反向传播先后顺序
 
     @property
     def creator(self) -> Optional[Function]:
@@ -25,6 +25,28 @@ class Variable:
     def creator(self, func: Optional[Function]):
         self._creator = func
         self.generation = func.generation + 1
+
+    @property
+    def ndim(self):
+        return self.data.ndim
+
+    @property
+    def size(self):
+        return self.data.size
+
+    @property
+    def dtype(self):
+        return self.data.dtype
+
+    def __len__(self):
+        return len(self.data)
+
+    def __repr__(self):
+        if self.data is None:
+            return 'Variable(None)'
+
+        res = str(self.data).replace('\n', '\n         ')  # 空格对其输出格式
+        return f"Variable({res})"
 
     def backward(self, need_grad=False):
         if self.grad is None:
@@ -46,7 +68,7 @@ class Variable:
 
         while funcs:
             f = funcs.pop()
-            gys = [y().grad for y in f.outputs]     # y: ReferenceType[Tuple[Variable]]
+            gys = [y().grad for y in f.outputs]  # y: ReferenceType[Tuple[Variable]]
             gxs = f.backward(*gys)
 
             for x, gx in zip(f.inputs, gxs):
@@ -60,7 +82,7 @@ class Variable:
 
             if not need_grad:
                 for y in f.outputs:
-                    y().grad = None# 清除不需要的梯度
+                    y().grad = None  # 清除不需要的梯度
 
     def clear_grad(self):
         self.grad = np.ones_like(self.data)
