@@ -86,3 +86,9 @@ class Variable:
 
     def clear_grad(self):
         self.grad = np.ones_like(self.data)
+
+    def __mul__(self, other):
+        return mul(self, other)
+
+    def __add__(self, other):
+        return add(self, other)
