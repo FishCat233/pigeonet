@@ -103,6 +103,12 @@ class Variable:
     def __radd__(self, other):
         return add(self, other)
 
+    def __neg__(self):
+        return neg(self)
+
+    def __eq__(self, other):
+        pass
+
 
 class Function(ABC):
     """
@@ -128,7 +134,7 @@ class Function(ABC):
         self.generation = max([i.generation for i in args])
         for var in outputs:
             var.creator = self
-        self.inputs = args
+        self.inputs = args      # TODO： 可以优化：不是所有的函数节点都需要保存输入
         self.outputs = [weakref.ref(output) for output in outputs]  # 函数对产生的变量是弱引用，变量对函数使用creator引用
 
         return outputs if len(outputs) > 1 else outputs[0]
@@ -150,6 +156,18 @@ class Function(ABC):
         :return: grad xs
         """
         raise NotImplementedError
+
+
+class Neg(Function):
+    def forward(self, x):
+        return -x
+
+    def backward(self, gys):
+        return -gys
+
+
+def neg(x):
+    return Neg()(x)
 
 
 class Add(Function):
