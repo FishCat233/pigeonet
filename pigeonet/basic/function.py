@@ -33,7 +33,7 @@ class Function(ABC):
 
         if not isinstance(ys, tuple):
             ys = (ys,)  # 下面默认是操作元组，所以要转元组
-        outputs = [Variable(as_array(y)) for y in ys]
+        outputs = [Variable(y) for y in ys]
 
         self.generation = max([i.generation for i in args])
         for var in outputs:
@@ -70,8 +70,8 @@ class Add(Function):
         return gys, gys
 
 
-def add(x0: Variable, x1: Variable) -> Variable:
-    return Add()(x0, x1)
+def add(left, right) -> Variable:
+    return Add()(left, as_variable(right))
 
 
 class Square(Function):
@@ -82,13 +82,13 @@ class Square(Function):
         return self.inputs[0].data * 2 * gy,
 
 
-def square(x: Variable) -> Variable:
+def square(x) -> Variable:
     return Square()(x)
 
 
 class Mul(Function):
-    def forward(self, x0, x1):
-        return x0 * x1
+    def forward(self, left, right):
+        return left * as_variable(right)
 
     def backward(self, gy):
         x0, x1 = self.inputs[0].data, self.inputs[1].data
@@ -97,18 +97,6 @@ class Mul(Function):
 
 def mul(x0, x1):
     return Mul()(x0, x1)
-
-
-def as_array(x) -> numpy.ndarray:
-    """
-    将标量/非标量自动转化为numpy数组
-    :param x:
-    :return:
-    """
-    if np.isscalar(x):
-        return np.array(x)
-
-    return x
 
 
 def as_variable(x):
