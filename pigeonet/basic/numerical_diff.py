@@ -1,9 +1,7 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
 import numpy as np
 
-if TYPE_CHECKING:
-    from pigeonet.basic.common import Variable
+from pigeonet.basic.common import Variable
 
 
 def numerical_diff(f, x, eps=1e-4):

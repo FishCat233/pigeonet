@@ -6,8 +6,6 @@ from typing import Optional
 import numpy as np
 from abc import ABC, abstractmethod
 
-__all__ = [name for name in globals() if not name.startswith('_')]
-
 
 # TODO: 添加一个禁反向传播的功能
 
@@ -74,6 +72,9 @@ class Variable:
             gys = [y().grad for y in f.outputs]  # y: ReferenceType[Tuple[Variable]]
             gxs = f.backward(*gys)
 
+            if not isinstance(gxs, tuple):
+                gxs = gxs,
+
             for x, gx in zip(f.inputs, gxs):
                 if x.grad is None:
                     x.grad = gx
@@ -135,7 +136,7 @@ class Function(ABC):
     @abstractmethod
     def forward(self, *xs):
         """
-        前向传播计算
+        前向传播计算，围绕节点数据进行运算。
         :param xs: x.data
         :return: y.data
         """
@@ -144,7 +145,7 @@ class Function(ABC):
     @abstractmethod
     def backward(self, gys):
         """
-        后向传播计算
+        后向传播计算，围绕节点数据进行求导。
         :param gys: grad ys
         :return: grad xs
         """
@@ -160,7 +161,7 @@ class Add(Function):
 
 
 def add(left, right) -> Variable:
-    return Add()(left, as_variable(right))
+    return Add()(left, right)
 
 
 class Square(Function):
@@ -168,16 +169,16 @@ class Square(Function):
         return x ** 2
 
     def backward(self, gy):
-        return self.inputs[0].data * 2 * gy,
+        return self.inputs[0].data * 2 * gy
 
 
-def square(x) -> Variable:
+def square(x):
     return Square()(x)
 
 
 class Mul(Function):
     def forward(self, left, right):
-        return left * as_variable(right)
+        return left * right
 
     def backward(self, gy):
         x0, x1 = self.inputs[0].data, self.inputs[1].data
