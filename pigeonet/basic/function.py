@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+import weakref
+
 import numpy
 import numpy as np
 from abc import ABC, abstractmethod
@@ -20,7 +23,7 @@ class Function(ABC):
         for var in outputs:
             var.creator = self
         self.inputs = args
-        self.outputs = outputs
+        self.outputs = [weakref.ref(output) for output in outputs]  # 函数对产生的变量是弱引用，变量对函数使用creator引用
 
         return outputs if len(outputs) > 1 else outputs[0]
 

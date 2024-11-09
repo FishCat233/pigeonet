@@ -26,7 +26,7 @@ class Variable:
         self._creator = func
         self.generation = func.generation + 1
 
-    def backward(self):
+    def backward(self, need_grad=False):
         if self.grad is None:
             # 初始化梯度
             self.grad = np.ones_like(self.data)
@@ -46,7 +46,7 @@ class Variable:
 
         while funcs:
             f = funcs.pop()
-            gys = [y.grad for y in f.outputs]
+            gys = [y().grad for y in f.outputs]     # y: ReferenceType[Tuple[Variable]]
             gxs = f.backward(*gys)
 
             for x, gx in zip(f.inputs, gxs):
@@ -57,6 +57,10 @@ class Variable:
 
                 if x.creator is not None:
                     add_func(x.creator)
+
+            if not need_grad:
+                for y in f.outputs:
+                    y().grad = None# 清除不需要的梯度
 
     def clear_grad(self):
         self.grad = np.ones_like(self.data)
