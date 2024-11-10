@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import weakref
+from mailcap import subst
 from typing import Optional
 
 import numpy as np
 from abc import ABC, abstractmethod
+
+from numpy.core.numeric import isscalar
 
 
 # TODO: 添加一个禁反向传播的功能
@@ -106,8 +109,20 @@ class Variable:
     def __neg__(self):
         return neg(self)
 
-    def __eq__(self, other):
-        pass
+    def __sub__(self, other):
+        return sub(self, other)
+
+    def __rsub__(self, other):
+        return rsub(self, other)
+
+    def __truediv__(self, other):
+        return div(self, other)
+
+    def __rtruediv__(self, other):
+        return rdiv(self, other)
+
+    def __pow__(self, power, modulo=None):
+        return pow(self, power)
 
 
 class Function(ABC):
@@ -123,7 +138,7 @@ class Function(ABC):
         :param kwargs:
         :return:
         """
-        args = [as_variable(arg) for arg in args]
+        args = [as_variable(arg) for arg in args]  # TODO：可以优化，没必要所有的输入都转化成Variable，因为不是所有的数据都要梯度
         xs = [x.data for x in args]  # x Variable中的data
         ys = self.forward(*xs)  # y Variable中的data
 
@@ -134,7 +149,7 @@ class Function(ABC):
         self.generation = max([i.generation for i in args])
         for var in outputs:
             var.creator = self
-        self.inputs = args      # TODO： 可以优化：不是所有的函数节点都需要保存输入
+        self.inputs = args  # TODO： 可以优化：不是所有的函数节点都需要保存输入
         self.outputs = [weakref.ref(output) for output in outputs]  # 函数对产生的变量是弱引用，变量对函数使用creator引用
 
         return outputs if len(outputs) > 1 else outputs[0]
@@ -171,8 +186,8 @@ def neg(x):
 
 
 class Add(Function):
-    def forward(self, x0, x1):
-        return x0 + x1
+    def forward(self, left, right):
+        return left + right
 
     def backward(self, gys):
         return gys, gys
@@ -180,6 +195,22 @@ class Add(Function):
 
 def add(left, right) -> Variable:
     return Add()(left, right)
+
+
+class Sub(Function):
+    def forward(self, left, right):
+        return left - right
+
+    def backward(self, gys):
+        return gys, -gys
+
+
+def sub(x0, x1):
+    return Sub()(x0, x1)
+
+
+def rsub(x0, x1):
+    return Sub()(x1, x0)
 
 
 class Square(Function):
@@ -199,12 +230,52 @@ class Mul(Function):
         return left * right
 
     def backward(self, gy):
-        x0, x1 = self.inputs[0].data, self.inputs[1].data
-        return gy * x1, gy * x0
+        left, right = [x.data for x in self.inputs]
+        return gy * right, gy * left
 
 
 def mul(x0, x1):
     return Mul()(x0, x1)
+
+
+class Div(Function):
+    def forward(self, left, right):
+        return left / right
+
+    def backward(self, gys):
+        left, right = [x.data for x in self.inputs]
+        gleft = gys / right  # gys * (1/right)
+        gright = gys * -left * (right ** -2)
+        return gleft, gright
+
+
+def div(x0, x1):
+    return Div()(x0, x1)
+
+
+def rdiv(x0, x1):
+    return Div()(x1, x0)
+
+
+class Pow(Function):
+    def forward(self, x, c):
+        return x ** c
+
+    def backward(self, gys):
+        x, c = self.inputs[0].data, self.inputs[1]
+        gx = gys * c * (x ** (c - 1))
+        # WARNING: 布计算c的导数
+        return gx
+
+
+def pow(x, c):
+    """
+    乘方，注意返回求导时不计算c的导数
+    :param x:
+    :param c:
+    :return:
+    """
+    return Pow()(x, c)
 
 
 def as_variable(x):
@@ -216,3 +287,14 @@ def as_variable(x):
     if isinstance(x, Variable):
         return x
     return Variable(x)
+
+
+def as_ndarray(x):
+    """
+    自动转换为array
+    :param x:
+    :return:
+    """
+    if np.isscalar(x):
+        return x
+    return np.array(x)
