@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import weakref
-from mailcap import subst
 from typing import Optional
 
 import numpy as np
@@ -11,6 +10,7 @@ from numpy.core.numeric import isscalar
 
 
 # TODO: 添加一个禁反向传播的功能
+# TODO: common改名core然后打包
 
 class Variable:
     def __init__(self, data):
