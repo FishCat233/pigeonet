@@ -54,3 +54,7 @@ class SquareTest(unittest.TestCase):
         d = np.array(2) * c
 
         self.assertEqual(d.data, Variable(24).data)
+
+    def test_complicate_function_grad(self):
+        # TODO：复杂函数求导
+        pass
