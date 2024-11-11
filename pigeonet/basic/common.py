@@ -54,7 +54,7 @@ class Variable:
         if self.data is None:
             return 'Variable(None)'
 
-        res = str(self.data).replace('\n', '\n         ')  # 空格对其输出格式
+        res = str(self.data).replace('\n', '\n         ')  # 空格对齐输出格式
         return f"Variable({res})"
 
     def backward(self, need_grad=False):
