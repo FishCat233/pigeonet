@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 
 from numpy.core.numeric import isscalar
 
+from pigeonet.basic.global_config import GlobalConfig
+
 
 # TODO: 添加一个禁反向传播的功能
 # TODO: common改名core然后打包
@@ -57,7 +59,7 @@ class Variable:
         res = str(self.data).replace('\n', '\n         ')  # 空格对齐输出格式
         return f"Variable({res})"
 
-    def backward(self, need_grad=False):
+    def backward(self, keep_grad=False):
         if self.grad is None:
             # 初始化梯度
             self.grad = np.ones_like(self.data)
@@ -92,7 +94,7 @@ class Variable:
                 if x.creator is not None:
                     add_func(x.creator)
 
-            if not need_grad:
+            if not keep_grad:
                 for y in f.outputs:
                     y().grad = None  # 清除不需要的梯度
 
@@ -151,11 +153,14 @@ class Function(ABC):
             ys = (ys,)  # 下面默认是操作元组，所以要转元组
         outputs = [Variable(y) for y in ys]
 
-        self.generation = max([i.generation for i in args])
-        for var in outputs:
-            var.creator = self
+        if GlobalConfig.enable_graph_conn:
+            # 连接新Variable到Function上
+            self.generation = max([i.generation for i in args])
+            for var in outputs:
+                var.creator = self
+
         self.inputs = args  # TODO： 可以优化：不是所有的函数节点都需要保存输入
-        self.outputs = [weakref.ref(output) for output in outputs]  # 函数对产生的变量是弱引用，变量对函数使用creator引用
+        self.outputs = [weakref.ref(output) for output in outputs]  # 函数对产生的变量是弱引用，变量对函数creator强引用
 
         return outputs if len(outputs) > 1 else outputs[0]
 
