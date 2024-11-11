@@ -13,10 +13,11 @@ from numpy.core.numeric import isscalar
 # TODO: common改名core然后打包
 
 class Variable:
-    def __init__(self, data):
+    def __init__(self, data, name=''):
         if not isinstance(data, np.ndarray):
             data = np.array(data)
         self.data: np.ndarray = data
+        self.name: str = name
         self._creator: Optional[Function] = None
         self.grad: Optional[np.ndarray] = None
         self.generation: int = 0  # 代数，用于标记函数反向传播先后顺序
@@ -37,6 +38,10 @@ class Variable:
     @property
     def size(self):
         return self.data.size
+
+    @property
+    def shape(self):
+        return self.data.shape
 
     @property
     def dtype(self):
