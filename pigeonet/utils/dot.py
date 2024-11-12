@@ -13,7 +13,7 @@ def _dot_var(v: Variable, detail=False):
     :param detail:
     :return:
     """
-    template = '{} [label="{}", color=orange, style=filled]\n'
+    template = '{} [label="{}", color=lightskyblue, style=filled]\n'
 
     name = '' if v.name is None else v.name
     if detail and v.data is not None:
@@ -30,14 +30,14 @@ def _dot_func(f: Function):
     :param f:
     :return:
     """
-    template =  ' {} [label=" {}" , color=lightblue , style=filled ,shape=box]\n'
+    template =  '{} [label=" {}" , color=darkturquoise , style=filled ,shape=box]\n'
     connect_template = '{} -> {}\n'
     res = template.format(id(f), f.__class__.__name__)
 
     for x in f.inputs:
         res += connect_template.format(id(x), id(f))
     for y in f.outputs:
-        res += connect_template.format((id(f), id(x)))
+        res += connect_template.format(id(f), id(y()))
 
     return res
 
@@ -60,13 +60,13 @@ def dot_graph_backward(y: Variable, detail=False):
         for x in func.inputs:
             res += _dot_var(x, detail)
 
-            if x.creator is None:
+            if x.creator is not None:
                 add_func(x.creator)
 
     return 'digraph g {\n' + res + '}\n'
 
 def plot_dot_graph(y: Variable, detail=True, to_file='graph.png'):
-    dot_graph_str = dot_graph_backward(y)
+    dot_graph_str = dot_graph_backward(y, detail)
 
     path = os.path.join(os.path.expanduser('.'), 'dot_graph')
     if not os.path.exists(path):
