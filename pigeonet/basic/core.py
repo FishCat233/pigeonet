@@ -6,9 +6,7 @@ from typing import Optional
 import numpy as np
 from abc import ABC, abstractmethod
 
-from numpy.core.numeric import isscalar
-
-from pigeonet.basic.global_config import GlobalConfig
+from pigeonet.basic.global_config import GlobalConfig, config
 
 
 # TODO: 添加一个禁反向传播的功能
@@ -21,7 +19,7 @@ class Variable:
         self.data: np.ndarray = data
         self.name: str = name
         self._creator: Optional[Function] = None
-        self.grad: Optional[np.ndarray] = None
+        self.grad: Optional[Variable | np.ndarray] = None
         self.generation: int = 0  # 代数，用于标记函数反向传播先后顺序
 
     @property
@@ -59,7 +57,7 @@ class Variable:
         res = str(self.data).replace('\n', '\n         ')  # 空格对齐输出格式
         return f"Variable({res})"
 
-    def backward(self, keep_grad=False):
+    def backward(self, keep_grad=False, build_graph=False):
         if self.grad is None:
             # 初始化梯度
             self.grad = np.ones_like(self.data)
@@ -80,26 +78,28 @@ class Variable:
         while funcs:
             f = funcs.pop()
             gys = [y().grad for y in f.outputs]  # y: ReferenceType[Tuple[Variable]]
-            gxs = f.backward(*gys)
 
-            if not isinstance(gxs, tuple):
-                gxs = gxs,
+            with config(enable_graph_conn=build_graph):
+                gxs = f.backward(*gys)
 
-            for x, gx in zip(f.inputs, gxs):
-                if x.grad is None:
-                    x.grad = gx
-                else:
-                    x.grad += gx
+                if not isinstance(gxs, tuple):
+                    gxs = gxs,
 
-                if x.creator is not None:
-                    add_func(x.creator)
+                for x, gx in zip(f.inputs, gxs):
+                    if x.grad is None:
+                        x.grad = gx
+                    else:
+                        x.grad = x.grad + gx
+
+                    if x.creator is not None:
+                        add_func(x.creator)
 
             if not keep_grad:
                 for y in f.outputs:
                     y().grad = None  # 清除不需要的梯度
 
     def clear_grad(self):
-        self.grad = np.ones_like(self.data)
+        self.grad = np.zeros_like(self.data)
 
     def __mul__(self, other):
         return mul(self, other)
@@ -228,7 +228,7 @@ class Square(Function):
         return x ** 2
 
     def backward(self, gy):
-        return self.inputs[0].data * 2 * gy
+        return self.inputs[0] * 2 * gy
 
 
 def square(x):
@@ -240,7 +240,7 @@ class Mul(Function):
         return left * right
 
     def backward(self, gy):
-        left, right = [x.data for x in self.inputs]
+        left, right = self.inputs
         return gy * right, gy * left
 
 
@@ -253,7 +253,7 @@ class Div(Function):
         return left / right
 
     def backward(self, gys):
-        left, right = [x.data for x in self.inputs]
+        left, right = self.inputs
         gleft = gys / right  # gys * (1/right)
         gright = gys * -left * (right ** -2)
         return gleft, gright
@@ -272,7 +272,7 @@ class Pow(Function):
         return x ** c
 
     def backward(self, gys):
-        x, c = self.inputs[0].data, self.inputs[1]
+        x, c = self.inputs
         gx = gys * c * (x ** (c - 1))
         # WARNING: 布计算c的导数
         return gx
