@@ -1,7 +1,7 @@
 from __future__ import annotations
 import numpy as np
 
-from pigeonet.basic.common import Variable
+from pigeonet.basic.core import Variable
 
 
 def numerical_diff(f, x, eps=1e-4):

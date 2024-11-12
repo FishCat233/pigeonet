@@ -1,8 +1,9 @@
 import unittest
 import numpy as np
 
-from pigeonet.basic.common import Variable, Function, square, add
+from pigeonet.basic.core import Variable, Function, square, add
 from pigeonet.basic.numerical_diff import numerical_diff
+from pigeonet.utils.dot import dot_graph_backward, plot_dot_graph
 
 
 class SquareTest(unittest.TestCase):
@@ -58,3 +59,23 @@ class SquareTest(unittest.TestCase):
     def test_complicate_function_grad(self):
         # TODO：复杂函数求导
         pass
+
+    def test_higher_derivative(self):
+        # 高阶求导测试
+        def f(x: Variable):
+            # 4 * x ** 3 - 4 * x
+            y = x ** 4 - 2 * (x ** 2)
+            return y
+
+        x = Variable(2, name="x")
+        y = f(x)
+        y.name = "y"
+        y.backward(build_graph=True)
+        print(x.grad)
+
+        gx = x.grad
+        x.clear_grad()
+        gx.name = 'gx'
+        gx.backward()
+        # plot_dot_graph(y, detail=True)
+        print(x.grad)
