@@ -6,6 +6,8 @@ from typing import Optional
 import numpy as np
 from abc import ABC, abstractmethod
 
+from nuitka.tree.TreeHelpers import parseSourceCodeToAst
+
 from pigeonet.basic.global_config import GlobalConfig, config
 
 
@@ -100,6 +102,12 @@ class Variable:
 
     def clear_grad(self):
         self.grad = np.zeros_like(self.data)
+
+    def reshape(self, shape):
+        return reshape(self, shape)
+
+    def transpose(self, dims):
+        return transpose(self, dims)
 
     def __mul__(self, other):
         return mul(self, other)
@@ -286,6 +294,56 @@ def pow(x, c):
     :return:
     """
     return Pow()(x, c)
+
+
+class Reshape(Function):
+    def __init__(self, shape):
+        self.y_shape = shape
+
+    def forward(self, x: np.ndarray):
+        self.x_shape = x.shape
+        y = x.reshape(self.y_shape)
+        return y
+
+    def backward(self, gys: np.ndarray | Variable):
+        return reshape(gys, self.x_shape)
+
+
+def reshape(x, shape):
+    return Reshape(shape)(x)
+
+
+class Transpose2D(Function):
+    def forward(self, x):
+        return x.T
+
+    def backward(self, gys):
+        return gys.T
+
+class Transpose(Function):
+    def __init__(self, dims):
+        self.x_dim = dims
+        self.y_dim = []
+
+        dim = 0
+        while len(self.y_dim) < len(self.x_dim):
+            for i,v in enumerate(self.x_dim):
+                if v == dim:
+                    self.y_dim.append(dim)
+                    dim += 1
+                    break
+
+    def forward(self, x: np.ndarray):
+        return np.transpose(x, self.x_dim)
+
+    def backward(self, gys):
+        # TODO: 测试反向传播
+        return np.transpose(gys, self.y_dim)
+
+def transpose(x, dim=None):
+    if dim is None:
+        return Transpose2D()(x)
+    return Transpose(dim)(x)
 
 
 def as_variable(x):
