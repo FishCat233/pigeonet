@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import weakref
+from pickletools import read_uint1
 from typing import Optional
 
 import numpy as np
@@ -89,8 +90,8 @@ class Variable:
                     gxs = gxs,
 
                 for x, gx in zip(f.inputs, gxs):
-                    if x.grad.data is None:
-                        x.grad.data = gx
+                    if x.grad is None:
+                        x.grad = as_variable(x)
                     else:
                         x.grad.data = x.grad.data + gx
 
@@ -106,6 +107,9 @@ class Variable:
 
     def reshape(self, shape):
         return reshape(self, shape)
+
+    def clip(self, x_min, x_max):
+        return clip(self, x_min, x_max)
 
     @property
     def T(self):
@@ -149,6 +153,22 @@ class Variable:
 
     def __rmatmul__(self, other):
         return matmul(self, other)
+
+    # TODO: 暂时不要用比较
+    # def __eq__(self, other):
+    #     return eq(self, other)
+    #
+    # def __lt__(self, other):
+    #     return lt(self, other)
+    #
+    # def __le__(self, other):
+    #     return le(self, other)
+    #
+    # def __gt__(self, other):
+    #     return gt(self, other)
+    #
+    # def __ge__(self, other):
+    #     return ge(self, other)
 
     def __pow__(self, power, modulo=None):
         return pow(self, power)
@@ -344,6 +364,51 @@ class Pow(Function):
         return gx
 
 
+class Exp(Function):
+    def forward(self, x):
+        self.y = np.exp(x)
+        return self.y
+
+    def backward(self, gys):
+        return gys * self.y
+
+
+def exp(x):
+    return Exp()(x)
+
+
+class Compare(Function):
+    def __init__(self, mask_func):
+        self.mask_func = mask_func
+
+    def forward(self, x, num):
+        self.mask = self.mask_func(x, num)
+        return self.mask
+
+    def backward(self, gys):
+        return self.mask
+
+
+def gt(x, num):
+    return Compare(np.ndarray.__gt__)(x, num)
+
+
+def ge(x, num):
+    return Compare(np.ndarray.__ge__)(x, num)
+
+
+def lt(x, num):
+    return Compare(np.ndarray.__lt__)(x, num)
+
+
+def le(x, num):
+    return Compare(np.ndarray.__le__)(x, num)
+
+
+def eq(x, num):
+    return Compare(np.ndarray.__eq__)(x, num)
+
+
 def pow(x, c):
     """
     乘方，注意返回求导时不计算c的导数
@@ -486,6 +551,15 @@ def sum_to(x, shape):
     if x.shape == shape:
         return as_variable(x)
     return SumTo(shape)(x)
+
+class Clip(Function):
+    def forward(self, x, x_min, x_max):
+        self.mask = x >= x_min
+        self.mask = self.mask and x <= x_max
+
+    def backward(self, gys):
+        # TODO: 反向传播
+        pass
 
 
 class GetItem(Function):
