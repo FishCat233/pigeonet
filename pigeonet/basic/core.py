@@ -153,6 +153,9 @@ class Variable:
     def __pow__(self, power, modulo=None):
         return pow(self, power)
 
+    def __getitem__(self, slices):
+        return get_item(self, slices)
+
 
 class Function(ABC):
     """
@@ -321,8 +324,10 @@ class MatMul(Function):
         gyr = left.T @ gys
         return gyl, gyr
 
+
 def matmul(left, right):
     return MatMul()(left, right)
+
 
 def rmatmul(right, left):
     return MatMul()(left, right)
@@ -481,6 +486,41 @@ def sum_to(x, shape):
     if x.shape == shape:
         return as_variable(x)
     return SumTo(shape)(x)
+
+
+class GetItem(Function):
+    def __init__(self, slices):
+        self.slices = slices
+
+    def forward(self, x):
+        return x[self.slices]
+
+    def backward(self, gys):
+        x, = self.inputs
+        return GetItemGrad(self.slices, x.shape)(gys)
+
+
+class GetItemGrad(Function):
+    def __init__(self, slices, in_shape):
+        self.slices = slices
+        self.in_shape = in_shape
+
+    def forward(self, x):
+        """
+        getitem反向传播就是x形状，但是除了切片部分外全是0
+        :param x: 实际上是getitem中的梯度
+        :return:
+        """
+        gx = np.zeros(self.in_shape)
+        np.add.at(gx, self.slices, x)
+        return gx
+
+    def backward(self, gys):
+        return get_item(gys, self.slices)
+
+
+def get_item(x, slices):
+    return GetItem(slices)(x)
 
 
 def as_variable(x):
