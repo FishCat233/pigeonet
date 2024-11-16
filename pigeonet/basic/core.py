@@ -144,6 +144,12 @@ class Variable:
     def __rtruediv__(self, other):
         return rdiv(self, other)
 
+    def __matmul__(self, other):
+        return matmul(self, other)
+
+    def __rmatmul__(self, other):
+        return matmul(self, other)
+
     def __pow__(self, power, modulo=None):
         return pow(self, power)
 
@@ -303,6 +309,23 @@ def div(x0, x1):
 
 def rdiv(x0, x1):
     return Div()(x1, x0)
+
+
+class MatMul(Function):
+    def forward(self, left, right):
+        return left @ right
+
+    def backward(self, gys):
+        left, right = self.inputs
+        gyl = gys @ right.T
+        gyr = left.T @ gys
+        return gyl, gyr
+
+def matmul(left, right):
+    return MatMul()(left, right)
+
+def rmatmul(right, left):
+    return MatMul()(left, right)
 
 
 class Pow(Function):
