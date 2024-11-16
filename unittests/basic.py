@@ -92,3 +92,8 @@ class SquareTest(unittest.TestCase):
         y.backward()
         print(y)
         print(x.grad)
+
+    def test_matmul(self):
+        x0 = Variable([[1, 2], [3, 4]])
+        x1 = Variable([[5, 6], [7, 8]])
+        print(x0 @ x1)
