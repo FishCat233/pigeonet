@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os.path
 import weakref
 from abc import ABC, abstractmethod
 
+import numpy as np
 from Demos.win32cred_demo import target
 
 from pigeonet.basic.core import Variable
@@ -43,6 +45,37 @@ class Layer(ABC):
     def clear_grads(self) -> None:
         for param in self.params():
             param.clear_grad()
+
+    def _flattern_params(self, params_dict, parent_key="") -> None:
+        """
+        扁平化参数
+        :param params_dict: 引用，接收扁平化后的参数
+        :param parent_key: 父层的 key
+        :return: none
+        """
+        for name in self._params_name:
+            obj = self.__dict__[name]
+            key = parent_key + '/' + name if parent_key else name
+
+            if isinstance(obj, Layer):
+                obj._flattern_params(params_dict, key)
+            else:
+                params_dict[key] = obj
+
+    def save_params(self, path):
+        params_dict = {}
+        self._flattern_params(params_dict)
+        kv_dict = {k: v.data for k, v in params_dict.items() if v is not None}
+
+        # TODO: savez compressed
+        np.savez_compressed(path, **kv_dict)
+
+    def load_params(self, path):
+        npz = np.load(path)
+        params_dict = {}
+        self._flattern_params(params_dict)
+        for k, v in params_dict.items():
+            v.data = npz[k]
 
 
 class Model(Layer):
