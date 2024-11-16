@@ -552,14 +552,24 @@ def sum_to(x, shape):
         return as_variable(x)
     return SumTo(shape)(x)
 
+
 class Clip(Function):
-    def forward(self, x, x_min, x_max):
-        self.mask = x >= x_min
-        self.mask = self.mask and x <= x_max
+    def __init__(self, x_min, x_max):
+        self.x_min = x_min
+        self.x_max = x_max
+
+    def forward(self, x):
+        return np.clip(x, self.x_min, self.x_max)
 
     def backward(self, gys):
         # TODO: 反向传播
-        pass
+        x, = self.inputs
+        mask = (x.data >= self.x_min) * (x.data <= self.x_max)
+        gx = gys * mask
+        return gx
+
+def clip(x, x_min, x_max):
+    return Clip(x_min, x_max)(x)
 
 
 class GetItem(Function):
