@@ -6,7 +6,8 @@ from typing import Optional
 import numpy as np
 from abc import ABC, abstractmethod
 
-from nuitka.tree.TreeHelpers import parseSourceCodeToAst
+from numpy.lib.stride_tricks import broadcast_to
+from torchgen.executorch.api.et_cpp import return_names
 
 from pigeonet.basic.global_config import GlobalConfig, config
 
@@ -106,8 +107,15 @@ class Variable:
     def reshape(self, shape):
         return reshape(self, shape)
 
+    @property
+    def T(self):
+        return transpose(self)
+
     def transpose(self, dims):
         return transpose(self, dims)
+
+    def sum(self, axis=None, keepdims=False):
+        return summary(self, axis, keepdims)
 
     def __mul__(self, other):
         return mul(self, other)
@@ -205,10 +213,16 @@ def neg(x):
 
 class Add(Function):
     def forward(self, left, right):
+        self.left_shape, self.right_shape = left.shape, right.shape
         return left + right
 
     def backward(self, gys):
-        return gys, gys
+        gyl, gyr = gys, gys
+        if self.left_shape != self.right_shape:
+            gyl = sum_to(gyl, self.left_shape)
+            gyr = sum_to(gyr, self.right_shape)
+
+        return gyl, gyr
 
 
 def add(left, right) -> Variable:
@@ -217,10 +231,16 @@ def add(left, right) -> Variable:
 
 class Sub(Function):
     def forward(self, left, right):
+        self.left_shape, self.right_shape = left.shape, right.shape
         return left - right
 
     def backward(self, gys):
-        return gys, -gys
+        gyl, gyr = gys, gys
+        if self.left_shape != self.right_shape:
+            gyl = sum_to(gyl, self.left_shape)
+            gyr = sum_to(gyr, self.right_shape)
+
+        return gyl, -gyr
 
 
 def sub(x0, x1):
@@ -245,10 +265,15 @@ def square(x):
 
 class Mul(Function):
     def forward(self, left, right):
+        self.left_shape, self.right_shape = left.shape, right.shape
         return left * right
 
     def backward(self, gy):
         left, right = self.inputs
+        if self.left_shape != self.right_shape:
+            left = sum_to(left, self.left_shape)
+            right = sum_to(right, self.right_shape)
+
         return gy * right, gy * left
 
 
@@ -258,10 +283,15 @@ def mul(x0, x1):
 
 class Div(Function):
     def forward(self, left, right):
+        self.left_shape, self.right_shape = left.shape, right.shape
         return left / right
 
     def backward(self, gys):
         left, right = self.inputs
+        if self.left_shape != self.right_shape:
+            left = sum_to(left, self.left_shape)
+            right = sum_to(right, self.right_shape)
+
         gleft = gys / right  # gys * (1/right)
         gright = gys * -left * (right ** -2)
         return gleft, gright
@@ -320,6 +350,7 @@ class Transpose2D(Function):
     def backward(self, gys):
         return gys.T
 
+
 class Transpose(Function):
     def __init__(self, dims):
         self.x_dim = dims
@@ -327,7 +358,7 @@ class Transpose(Function):
 
         dim = 0
         while len(self.y_dim) < len(self.x_dim):
-            for i,v in enumerate(self.x_dim):
+            for i, v in enumerate(self.x_dim):
                 if v == dim:
                     self.y_dim.append(dim)
                     dim += 1
@@ -340,10 +371,93 @@ class Transpose(Function):
         # TODO: 测试反向传播
         return np.transpose(gys, self.y_dim)
 
+
 def transpose(x, dim=None):
     if dim is None:
         return Transpose2D()(x)
     return Transpose(dim)(x)
+
+
+class Sum(Function):
+    def __init__(self, axis=None, keep_dims=False):
+        self.axis = axis
+        self.keep_dims = keep_dims
+
+    def forward(self, x):
+        self.x_shape = x.shape
+        return x.sum(axis=self.axis, keepdims=self.keep_dims)
+
+    def backward(self, gys):
+        ndim = len(self.x_shape)
+        axis_tuple = self.axis
+        if self.axis is None:
+            axis_tuple = None
+        elif not isinstance(axis_tuple, tuple):
+            axis_tuple = axis_tuple,
+
+        if ndim != 0 and axis_tuple is not None and not self.keep_dims:
+            actual_axis = [a if a >= 0 else a + ndim for a in axis_tuple]
+            shape = list(gys.shape)
+            for a in sorted(actual_axis):
+                shape.insert(a, 1)
+
+            gys.reshape(shape)
+
+        gys = broadcast_to(gys, self.x_shape)
+        return gys
+
+
+def summary(x, axis=None, keepdims=False):
+    return Sum(axis, keepdims)(x)
+
+
+class BroadcastTo(Function):
+    def __init__(self, shape):
+        self.y_shape = shape
+
+    def forward(self, x):
+        self.x_shape = x.shape
+        return np.broadcast_to(x, self.y_shape)
+
+    def backward(self, gys):
+        return sum_to(gys, self.x_shape)
+
+
+def broadcast_to(x, shape):
+    if x.shape == shape:
+        return as_variable(x)
+    return BroadcastTo(shape)(x)
+
+
+class SumTo(Function):
+    def __init__(self, shape):
+        self.y_shape = shape
+
+    def forward(self, x):
+        self.x_shape = x.shape
+
+        def sum_to(x, shape):
+            # 头疼
+            ndim = len(shape)
+            lead = x.ndim - ndim
+            lead_axis = tuple(range(lead))
+
+            axis = tuple([i + lead for i, sx in enumerate(shape) if sx == 1])
+            y = x.sum(lead_axis + axis, keepdims=True)
+            if lead > 0:
+                y = y.squeeze(lead_axis)
+            return y
+
+        return sum_to(x, self.y_shape)
+
+    def backward(self, gys):
+        return broadcast_to(gys, self.x_shape)
+
+
+def sum_to(x, shape):
+    if x.shape == shape:
+        return as_variable(x)
+    return SumTo(shape)(x)
 
 
 def as_variable(x):

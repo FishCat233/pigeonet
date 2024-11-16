@@ -79,3 +79,16 @@ class SquareTest(unittest.TestCase):
         gx.backward()
         # plot_dot_graph(y, detail=True)
         print(x.grad)
+
+    def test_summary_function(self):
+        x = Variable([[1, 2, 3], [4, 5, 6]])
+        y = x.sum(axis=0)
+        y.backward()
+        print(y)
+        print(x.grad)
+
+        x = Variable(np.random.randn(2, 3, 4, 5))
+        y = x.sum(keepdims=True)
+        y.backward()
+        print(y)
+        print(x.grad)
