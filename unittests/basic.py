@@ -4,6 +4,7 @@ import numpy as np
 from pigeonet.basic.core import Variable, Function, square, add
 from pigeonet.basic.numerical_diff import numerical_diff
 from pigeonet.utils.dot import dot_graph_backward, plot_dot_graph
+from pigeonet.basic.functions import relu
 
 
 class SquareTest(unittest.TestCase):
@@ -97,3 +98,10 @@ class SquareTest(unittest.TestCase):
         x0 = Variable([[1, 2], [3, 4]])
         x1 = Variable([[5, 6], [7, 8]])
         print(x0 @ x1)
+
+    def test_relu_backward(self):
+        x = Variable([1,0,-1])
+        y = relu(x)
+        y.backward()
+        print(y)
+        print(x.grad)
