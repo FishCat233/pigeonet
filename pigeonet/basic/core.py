@@ -362,32 +362,6 @@ class Pow(Function):
         return gx
 
 
-class Exp(Function):
-    def forward(self, x):
-        self.y = np.exp(x)
-        return self.y
-
-    def backward(self, gys):
-        return gys * self.y
-
-
-def exp(x):
-    return Exp()(x)
-
-
-class Log(Function):
-    def forward(self, x):
-        return np.log(x)
-
-    def backward(self, gys):
-        x, = self.inputs
-        return gys * (1 / x.data)
-
-
-def log(x):
-    return Log()(x)
-
-
 class Compare(Function):
     def __init__(self, mask_func):
         self.mask_func = mask_func
@@ -562,26 +536,6 @@ def sum_to(x, shape):
     if x.shape == shape:
         return as_variable(x)
     return SumTo(shape)(x)
-
-
-class Clip(Function):
-    def __init__(self, x_min, x_max):
-        self.x_min = x_min
-        self.x_max = x_max
-
-    def forward(self, x):
-        return np.clip(x, self.x_min, self.x_max)
-
-    def backward(self, gys):
-        # TODO: 反向传播
-        x, = self.inputs
-        mask = (x.data >= self.x_min) * (x.data <= self.x_max)
-        gx = gys * mask
-        return gx
-
-
-def clip(x, x_min, x_max):
-    return Clip(x_min, x_max)(x)
 
 
 class GetItem(Function):
