@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import weakref
-from pickletools import read_uint1
 from typing import Optional
 
 import numpy as np
 from abc import ABC, abstractmethod
 
 from numpy.lib.stride_tricks import broadcast_to
-from torchgen.executorch.api.et_cpp import return_names
 
 from pigeonet.basic.global_config import GlobalConfig, config
 
@@ -377,6 +375,19 @@ def exp(x):
     return Exp()(x)
 
 
+class Log(Function):
+    def forward(self, x):
+        return np.log(x)
+
+    def backward(self, gys):
+        x, = self.inputs
+        return gys * (1 / x.data)
+
+
+def log(x):
+    return Log()(x)
+
+
 class Compare(Function):
     def __init__(self, mask_func):
         self.mask_func = mask_func
@@ -567,6 +578,7 @@ class Clip(Function):
         mask = (x.data >= self.x_min) * (x.data <= self.x_max)
         gx = gys * mask
         return gx
+
 
 def clip(x, x_min, x_max):
     return Clip(x_min, x_max)(x)

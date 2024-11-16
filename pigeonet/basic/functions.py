@@ -1,6 +1,6 @@
 import numpy as np
 
-from pigeonet.basic import Function, Variable, as_variable, summary, exp
+from pigeonet.basic import Function, Variable, as_variable, summary, exp, clip, log
 
 
 def linear(x, w, b=None):
@@ -28,5 +28,8 @@ def batch_softmax_with_cross_entropy(x, t):
     n = x.shape[0]
 
     p = batch_softmax(x)
-    p = np.clip(p, 1e-15, 1.0)
-    log_p = np.log(p)
+    p = clip(p, 1e-15, 1.0)
+    log_p = log(p)
+    tlog_p = log_p(np.arange(n), t.data)
+    y = -1 * summary(tlog_p) / n
+    return y
