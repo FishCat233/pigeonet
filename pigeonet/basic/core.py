@@ -22,7 +22,7 @@ class Variable:
         self.data: np.ndarray = data
         self.name: str = name
         self._creator: Optional[Function] = None
-        self.grad: Optional[Variable | np.ndarray] = None
+        self.grad: Optional[Variable] = None
         self.generation: int = 0  # 代数，用于标记函数反向传播先后顺序
 
     @property
@@ -63,7 +63,7 @@ class Variable:
     def backward(self, keep_grad=False, build_graph=False):
         if self.grad is None:
             # 初始化梯度
-            self.grad = np.ones_like(self.data)
+            self.grad = Variable(np.ones_like(self.data))
 
         # 迭代 根据代数进行广度优先遍历计算图
         funcs: list[Function] = []
@@ -80,7 +80,7 @@ class Variable:
 
         while funcs:
             f = funcs.pop()
-            gys = [y().grad for y in f.outputs]  # y: ReferenceType[Tuple[Variable]]
+            gys = [y().grad.data for y in f.outputs]  # y: Tuple[ReferenceType[Variable]]
 
             with config(enable_graph_conn=build_graph):
                 gxs = f.backward(*gys)
@@ -89,10 +89,10 @@ class Variable:
                     gxs = gxs,
 
                 for x, gx in zip(f.inputs, gxs):
-                    if x.grad is None:
-                        x.grad = gx
+                    if x.grad.data is None:
+                        x.grad.data = gx
                     else:
-                        x.grad = x.grad + gx
+                        x.grad.data = x.grad.data + gx
 
                     if x.creator is not None:
                         add_func(x.creator)
