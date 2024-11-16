@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import os.path
-import weakref
 from abc import ABC, abstractmethod
 
 import numpy as np
-from Demos.win32cred_demo import target
 
 from pigeonet.basic.core import Variable
 from pigeonet.utils.dot import plot_dot_graph
