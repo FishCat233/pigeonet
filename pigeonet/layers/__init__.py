@@ -1,8 +1,9 @@
-from typing import Optional, Sequence
+from typing import Optional
 
 import numpy as np
 
-from pigeonet.basic.functions import linear, relu
+from pigeonet.basic import Variable
+from pigeonet.basic.functions import linear, relu, batch_norm
 from pigeonet.basic.conv_functions import conv
 from pigeonet.basic.network import Layer, Parameter
 
@@ -92,10 +93,12 @@ class Convolution(Layer):
 
         return conv(x, self.w, self.b, self.stride, self.pad)
 
+
 class Sequential(Layer):
     """
     序列层
     """
+
     def __init__(self, *layers: Layer):
         super().__init__()
         self.layers = layers
@@ -104,3 +107,32 @@ class Sequential(Layer):
         for layer in self.layers:
             x = layer.forward(x)
         return x
+
+
+class BatchNorm(Layer):
+    def __init__(self, momentum=0.9):
+        super().__init__()
+        self.gamma: Parameter = Parameter(None, 'gamma')
+        self.beta: Parameter = Parameter(None, 'beta')
+        self.running_var: Parameter = Parameter(None, 'running_var')
+        self.running_mean: Parameter = Parameter(None, 'running_mean')
+        self.momentum = momentum
+        # TODO: running_var 等参数的保存
+
+    def _init_params(self, x: Variable):
+        x = x.data
+        D = x.shape[0]
+        if x.ndim != 2:
+            N, C, H, W = x.shape
+            D = np.reshape(x, (N, -1))[1]
+        if self.running_mean.data is None:
+            self.running_mean.data = np.zeros(D)
+        if self.running_var is None:
+            self.running_var.data = np.ones(D)
+        if self.gamma.data is None:
+            self.gamma.data = np.ones(D)
+        if self.beta.data is None:
+            self.beta.data = np.zeros(D)
+
+    def forward(self, x):
+        return batch_norm(x, self.gamma, self.beta, self.momentum, self.running_mean, self.running_var)

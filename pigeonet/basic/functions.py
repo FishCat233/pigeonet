@@ -1,6 +1,7 @@
 import numpy as np
 
-from pigeonet.basic import Function, Variable, as_variable, summary, sum_to
+import pigeonet.basic
+from pigeonet.basic import Function, Variable, as_variable, summary, sum_to, GlobalConfig
 
 
 class Exp(Function):
@@ -66,6 +67,72 @@ class Linear(Function):
 
 def linear(x, w, b=None):
     return Linear()(x, w, b)
+
+
+class BatchNorm(Function):
+    def __init__(self, momentum=0.9, running_mean=None, running_var=None):
+        self.momentum = momentum
+        self.running_mean = running_mean
+        self.running_var = running_var
+
+    def forward(self, x: np.ndarray, gamma, beta):
+        self.x_shape = x.shape
+        if x.ndim != 2:
+            # conv
+            N, C, H, W = x.shape
+            x = x.reshape(N, -1)
+
+        self.N = x.shape[0]
+
+        if self.running_mean is None or self.running_var is None:
+            N, D = x.shape
+            running_mean = np.zeros(D)
+            running_var = np.zeros(D)
+
+        if pigeonet.basic.GlobalConfig.eval_mode:
+            # 验证模式
+            mu = x.mean(axis=0)
+            xc = x - mu
+            var = np.mean(xc ** 2, axis=0)
+            std = np.sqrt(var + 10e-7)
+            xn = xc / std
+
+            self.running_mean = self.momentum * self.running_mean + (1 - self.momentum) * mu
+            self.running_var = self.momentum * self.running_var + (1 - self.momentum) * var
+        else:
+            # 训练模式
+            xc = x - self.running_mean
+            std = np.sqrt(self.running_var + 10e-7)
+            xn = xc / std
+
+        self.xc = xc
+        self.std = std
+        self.xn = xn
+        y = gamma * xn + beta
+        return y.reshape(*self.x_shape)
+
+    def backward(self, gys: np.ndarray):
+        x, gamma, beta = [i.data for i in self.inputs]
+
+        if gys.ndim != 2:
+            N, C, H, W = gys.shape
+            gys = gys.reshape(N, -1)
+
+        dbeta = gys.sum(axis=0)
+        dgamma = np.sum(self.xn * gys, axis=0)
+        dxn = gamma * gys
+        dxc = dxn / self.std
+        dstd = -np.sum((dxn * self.xc) / (self.std * self.std), axis=0)
+        dvar = 0.5 * dstd / self.std
+        dxc += (2.0 / self.N) * self.xc * dvar
+        dmu = np.sum(dxc, axis=0)
+        dx = dxc - dmu / self.N
+
+        return dx, dgamma, dbeta
+
+
+def batch_norm(x, gamma, beta, momentum=0.9, running_mean=None, running_var=None):
+    return BatchNorm(momentum, running_mean, running_var)(x, gamma, beta)
 
 
 class ReLU(Function):
