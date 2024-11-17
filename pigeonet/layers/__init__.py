@@ -3,6 +3,7 @@ from typing import Optional
 import numpy as np
 
 from pigeonet.basic.functions import linear, relu
+from pigeonet.basic.conv_functions import conv
 from pigeonet.basic.network import Layer, Parameter
 
 
@@ -54,3 +55,39 @@ class MLP(Layer):
         for layer in self.layers[:-1]:
             x = self.activation(layer(x))
         return self.layers[-1](x)
+
+
+class Convolution(Layer):
+    """
+    2d 卷积层
+    """
+
+    # TODO: 测试卷积层
+    def __init__(self, out_channels, kernel_size, stride=1, pad=0, use_bias=True, in_channels=None):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.pad = pad
+        self.w = Parameter(None, 'w')
+
+        if self.in_channels is not None:
+            self._init_w()
+
+        if not use_bias:
+            self.b = None
+        else:
+            self.b = Parameter(np.zeros(out_channels), 'b')
+
+    def _init_w(self):
+        C, OC = self.in_channels, self.out_channels
+        scale = np.sqrt(1 / (C * self.kernel_size ** 2))
+        self.w.data = np.random.randn(OC, C, self.kernel_size, self.kernel_size) * scale
+
+    def forward(self, x):
+        if self.w.data is None:
+            self.in_channels = x.shape[1] # (N, C, H, W)
+            self._init_w()
+
+        return conv(x, self.w, self.b, self.stride, self.pad)
