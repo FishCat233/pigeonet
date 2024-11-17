@@ -58,7 +58,7 @@ class Linear(Function):
 
     def backward(self, gys):
         x, w, b = self.inputs
-        gb = None if b.data is None else sum_to(gy, b.shape)
+        gb = None if b.data is None else sum_to(gys, b.shape)
         gw = x.T @ gys
         gx = gys @ w.T
         return gx, gw, gb
