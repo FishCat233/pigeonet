@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 
@@ -87,7 +87,20 @@ class Convolution(Layer):
 
     def forward(self, x):
         if self.w.data is None:
-            self.in_channels = x.shape[1] # (N, C, H, W)
+            self.in_channels = x.shape[1]  # (N, C, H, W)
             self._init_w()
 
         return conv(x, self.w, self.b, self.stride, self.pad)
+
+class Sequential(Layer):
+    """
+    序列层
+    """
+    def __init__(self, *layers: Layer):
+        super().__init__()
+        self.layers = layers
+
+    def forward(self, x):
+        for layer in self.layers:
+            x = layer.forward(x)
+        return x
