@@ -1,4 +1,5 @@
 import numpy as np
+from cv2.gapi import kernel
 
 from pigeonet.basic import Function
 
@@ -41,8 +42,53 @@ class Conv(Function):
         db = np.sum(gys, axis=0)
         return dx, dw, db
 
+
 def conv(x, w, b, stride, pad):
     return Conv(stride=stride, pad=pad)(x, w, b)
+
+
+class MaxPool(Function):
+    def __init__(self, stride, pad):
+        super().__init__()
+        self.stride = stride
+        self.pad = pad
+
+    def forward(self, x, kernel_size):
+        self.kernel_size = kernel_size
+
+        N, C, H, W = x.shape
+        OH = 1 + int((H - kernel_size) / self.stride)
+        OW = 1 + int((W - kernel_size) / self.stride)
+
+        col_x = im2col(x, kernel_size, kernel_size, stride=self.stride, pad=self.pad)
+        col_x = col_x.reshape(-1, kernel_size ** 2)
+
+        self.arg_max: np.ndarray = np.argmax(col_x, axis=1)
+        out: np.ndarray = np.max(col_x, axis=1)
+        out = out.reshape(N, OH, OW, C).transpose(0, 3, 1, 2)
+
+        return out
+
+    def backward(self, gys: np.ndarray):
+        x = self.inputs[0].data
+
+        gys = gys.transpose(0, 2, 3, 1)
+
+        pool_size = self.kernel_size ** 2
+
+        dmax = np.zeros((gys.size, pool_size))
+        dmax[np.arange(self.arg_max.size), self.arg_max.flatten()] = gys.flatten()
+
+        dmax = dmax.reshape(gys.shape + (pool_size,))
+        dcol_x = dmax.reshape(dmax.shape[0] * dmax.shape[1] * dmax.shape[2], -1)
+
+        dx = col2im(dcol_x, x.shape, self.kernel_size, self.kernel_size, self.stride, self.pad)
+        return dx
+
+
+def max_pool(x, kernel_size: int, stride=1, pad=0):
+    # TODO: 测试池化
+    return MaxPool(stride, pad)(x, kernel_size)
 
 
 def im2col(input_data: np.ndarray, filter_h, filter_w, stride=1, pad=0) -> np.ndarray:
