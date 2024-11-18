@@ -1,5 +1,4 @@
 import numpy as np
-from cv2.gapi import kernel
 
 from pigeonet.basic import Function
 

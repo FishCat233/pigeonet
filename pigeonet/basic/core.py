@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 
 from numpy.lib.stride_tricks import broadcast_to
 
+from pigeonet.basic.functions import clip
 from pigeonet.basic.global_config import GlobalConfig, config
 
 
