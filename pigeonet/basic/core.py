@@ -89,7 +89,7 @@ class Variable:
 
                 for x, gx in zip(f.inputs, gxs):
                     if x.grad is None:
-                        x.grad = as_variable(x)
+                        x.grad = gx
                     else:
                         x.grad.data = x.grad.data + gx
 
@@ -316,12 +316,13 @@ class Div(Function):
     def backward(self, gys):
         # TODO： 求导有问题
         left, right = self.inputs
-        if self.left_shape != self.right_shape:
-            left = sum_to(left, self.left_shape)
-            right = sum_to(right, self.right_shape)
-
         gleft = gys / right  # gys * (1/right)
-        gright = gys * -left / (right ** 2)
+        gright = gys * (-left / right ** 2)
+
+        if self.left_shape != self.right_shape:
+            gleft = sum_to(left, self.left_shape)
+            gright = sum_to(right, self.right_shape)
+
         return gleft, gright
 
 
