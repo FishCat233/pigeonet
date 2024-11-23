@@ -30,26 +30,6 @@ def log(x):
     return Log()(x)
 
 
-class Clip(Function):
-    def __init__(self, x_min, x_max):
-        self.x_min = x_min
-        self.x_max = x_max
-
-    def forward(self, x):
-        return np.clip(x, self.x_min, self.x_max)
-
-    def backward(self, gys):
-        # TODO: 反向传播
-        x, = self.inputs
-        mask = (x.data >= self.x_min) * (x.data <= self.x_max)
-        gx = gys * mask
-        return gx
-
-
-def clip(x, x_min, x_max):
-    return Clip(x_min, x_max)(x)
-
-
 class Linear(Function):
     def forward(self, x, w, b):
         y = x @ w

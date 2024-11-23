@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 
 from numpy.lib.stride_tricks import broadcast_to
 
-from pigeonet.basic.functions import clip
 from pigeonet.basic.global_config import GlobalConfig, config
 
 
@@ -315,13 +314,14 @@ class Div(Function):
         return left / right
 
     def backward(self, gys):
+        # TODO： 求导有问题
         left, right = self.inputs
         if self.left_shape != self.right_shape:
             left = sum_to(left, self.left_shape)
             right = sum_to(right, self.right_shape)
 
         gleft = gys / right  # gys * (1/right)
-        gright = gys * -left * (right ** -2)
+        gright = gys * -left / (right ** 2)
         return gleft, gright
 
 
@@ -403,6 +403,26 @@ def pow(x, c):
     :return:
     """
     return Pow()(x, c)
+
+
+class Clip(Function):
+    def __init__(self, x_min, x_max):
+        self.x_min = x_min
+        self.x_max = x_max
+
+    def forward(self, x):
+        return np.clip(x, self.x_min, self.x_max)
+
+    def backward(self, gys):
+        # TODO: 反向传播
+        x, = self.inputs
+        mask = (x.data >= self.x_min) * (x.data <= self.x_max)
+        gx = gys * mask
+        return gx
+
+
+def clip(x, x_min, x_max):
+    return Clip(x_min, x_max)(x)
 
 
 class Reshape(Function):
